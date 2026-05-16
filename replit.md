@@ -1,44 +1,96 @@
-# [Project name]
+# Xtray Ping Bot
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Bot Discord otomatis yang mengirim notifikasi ke channel Discord setiap ada konten baru dari YouTube, TikTok, Twitter/X, Telegram, Pinterest, Anime (AniList), dan MyAnimeList.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- `pnpm --filter @workspace/api-server run dev` — jalankan API server + bot Discord
+- `pnpm run typecheck` — full typecheck semua packages
+- `pnpm run build` — typecheck + build semua packages
+- `pnpm --filter @workspace/api-spec run codegen` — regenerasi API hooks dan Zod schemas
+- `pnpm --filter @workspace/db run push` — push perubahan DB schema (dev only)
+- Required secrets: `DISCORD_BOT_TOKEN`, `DISCORD_CLIENT_ID`
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
 - API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
+- Discord: discord.js v14, @discordjs/rest v2
+- Validation: Zod (`zod/v4`)
 - Build: esbuild (CJS bundle)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/api-server/src/bot/` — semua logika bot Discord
+- `artifacts/api-server/src/bot/index.ts` — entry point bot, setup client & pollers
+- `artifacts/api-server/src/bot/storage.ts` — penyimpanan config JSON (bot-data.json)
+- `artifacts/api-server/src/bot/commands.ts` — registrasi slash commands global
+- `artifacts/api-server/src/bot/handlers/interaction.ts` — handler slash commands
+- `artifacts/api-server/src/bot/pollers/youtube.ts` — YouTube RSS (5 menit)
+- `artifacts/api-server/src/bot/pollers/tiktok.ts` — TikTok via TikWM API (10 menit)
+- `artifacts/api-server/src/bot/pollers/twitter.ts` — Twitter via Nitter RSS (15 menit)
+- `artifacts/api-server/src/bot/pollers/telegram.ts` — Telegram via RSSHub (10 menit)
+- `artifacts/api-server/src/bot/pollers/pinterest.ts` — Pinterest RSS (15 menit)
+- `artifacts/api-server/src/bot/pollers/anime.ts` — Anime via AniList GraphQL (30 menit)
+- `artifacts/api-server/src/bot/pollers/mal.ts` — MAL via Jikan API (30 menit)
+- `bot-data.json` — file penyimpanan config bot (dibuat otomatis saat pertama jalan)
+
+## Slash Commands
+
+| Command | Deskripsi |
+|---|---|
+| `/youtube set channel_id discord_channel` | Pantau channel YouTube |
+| `/youtube stop` | Hentikan pemantauan YouTube |
+| `/tiktok set username discord_channel` | Pantau akun TikTok |
+| `/tiktok stop` | Hentikan pemantauan TikTok |
+| `/twitter set username discord_channel` | Pantau akun Twitter/X |
+| `/twitter stop` | Hentikan pemantauan Twitter/X |
+| `/telegram set channel discord_channel` | Pantau channel Telegram |
+| `/telegram stop` | Hentikan pemantauan Telegram |
+| `/pinterest set username discord_channel` | Pantau akun Pinterest |
+| `/pinterest stop` | Hentikan pemantauan Pinterest |
+| `/anime set judul discord_channel` | Pantau episode anime baru |
+| `/anime stop` | Hentikan pemantauan anime |
+| `/mal set username discord_channel` | Pantau aktivitas MAL |
+| `/mal stop` | Hentikan pemantauan MAL |
+| `/status` | Tampilkan semua konfigurasi aktif |
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Bot berjalan berdampingan dengan Express server dalam satu proses (`src/index.ts` memanggil `startBot()`)
+- Config bot disimpan ke `bot-data.json` menggunakan fs sync — sederhana, tidak butuh DB
+- Setiap `updatePlatform()` mempertahankan `lastId` agar tidak reset saat update konfigurasi
+- `lastId` diisi di polling pertama tanpa mengirim notifikasi (mencegah spam saat pertama kali dikonfigurasi)
+- Poller anime menggunakan `lastEpisode` integer untuk tracking episode terakhir
+- discord.js di-externalize di esbuild agar tidak di-bundle (discord.js menggunakan dynamic loading)
+- Twitter dipantau via beberapa Nitter host sebagai fallback (nitter.privacyredirect.com, nitter.poast.org, dst)
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Bot Xtray Ping memantau 7 platform secara otomatis:
+- **YouTube** (5 menit) — video baru via RSS feed Atom
+- **TikTok** (10 menit) — video baru via TikWM API
+- **Twitter/X** (15 menit) — tweet baru via Nitter RSS (multi-host fallback)
+- **Telegram** (10 menit) — pesan channel baru via RSSHub
+- **Pinterest** (15 menit) — pin baru via RSS feed
+- **Anime/AniList** (30 menit) — episode baru via AniList GraphQL API
+- **MyAnimeList** (30 menit) — aktivitas watching via Jikan API
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Teks UI bot dalam Bahasa Indonesia
+- Gunakan pino logger untuk semua log (bukan console.log)
+- Setiap embed menyertakan `.setTimestamp()` dan `.setFooter()` dengan nama bot + platform
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Slash commands global aktif ~1 jam setelah registrasi pertama
+- `bot-data.json` disimpan di working directory saat runtime — pastikan direktori writable
+- Poller pertama kali hanya menyimpan `lastId` tanpa kirim notifikasi (perilaku yang diinginkan)
+- discord.js harus ada di external di `build.mjs` — jangan di-bundle
+- Nitter RSS bisa tidak stabil; bot mencoba beberapa host sebagai fallback
+- RSSHub (Telegram) adalah layanan publik gratis, bisa lambat atau down kadang
+- YouTube hanya mendukung Channel ID (format UCxxxxx), bukan @handle langsung
 
 ## Pointers
 
