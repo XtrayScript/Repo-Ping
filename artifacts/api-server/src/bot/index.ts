@@ -8,6 +8,7 @@ import { logger } from "../lib/logger.js";
 import { registerCommands } from "./commands.js";
 import { handleInteraction } from "./handlers/interaction.js";
 import { handleReactionAdd, handleReactionRemove, loadReactionRoleMessages } from "./handlers/reactionRole.js";
+import { handleTrapChannel } from "./handlers/trapChannel.js";
 import { startYouTubePoller } from "./pollers/youtube.js";
 import { startTikTokPoller } from "./pollers/tiktok.js";
 import { startTwitterPoller } from "./pollers/twitter.js";
@@ -31,6 +32,7 @@ export async function startBot(): Promise<void> {
       GatewayIntentBits.GuildMessages,
       GatewayIntentBits.GuildMessageReactions,
       GatewayIntentBits.GuildMembers,
+      GatewayIntentBits.MessageContent,
     ],
     partials: [
       Partials.Message,
@@ -70,6 +72,12 @@ export async function startBot(): Promise<void> {
   client.on(Events.MessageReactionRemove, (reaction, user) => {
     handleReactionRemove(reaction, user).catch((err) => {
       logger.error({ err }, "Error di MessageReactionRemove");
+    });
+  });
+
+  client.on(Events.MessageCreate, (message) => {
+    handleTrapChannel(message).catch((err) => {
+      logger.error({ err }, "Error di MessageCreate (trap channel)");
     });
   });
 

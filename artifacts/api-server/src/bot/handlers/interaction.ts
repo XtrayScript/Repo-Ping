@@ -10,6 +10,7 @@ import {
 } from "discord.js";
 import { readData, updatePlatform, stopPlatform } from "../storage.js";
 import { saveReactionRole } from "../reactionRoleStorage.js";
+import { saveTrapChannel, deleteTrapChannel, getTrapChannel } from "../trapChannelStorage.js";
 import { logger } from "../../lib/logger.js";
 
 export async function handleInteraction(interaction: Interaction): Promise<void> {
@@ -47,6 +48,10 @@ export async function handleInteraction(interaction: Interaction): Promise<void>
 
     if (commandName === "createrole") {
       await handleCreateRole(interaction);
+    }
+
+    if (commandName === "trap") {
+      await handleTrap(interaction);
     }
   } catch (err) {
     logger.error({ err, commandName }, "Error handling interaction");
@@ -354,4 +359,95 @@ async function handleInvite(interaction: ChatInputCommandInteraction): Promise<v
 
   await interaction.editReply({ embeds: [embed], components: [row] });
   logger.info("Invite link dikirim");
+}
+
+async function handleTrap(interaction: ChatInputCommandInteraction): Promise<void> {
+  if (!interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers)) {
+    await interaction.editReply({ content: "❌ Kamu butuh permission **Moderate Members** untuk menggunakan perintah ini." });
+    return;
+  }
+
+  const guildId = interaction.guildId;
+  if (!guildId) {
+    await interaction.editReply({ content: "❌ Command ini hanya bisa digunakan di dalam server." });
+    return;
+  }
+
+  const sub = interaction.options.getSubcommand();
+
+  if (sub === "set") {
+    const channel = interaction.options.getChannel("channel", true);
+    const durasi = interaction.options.getInteger("durasi", true);
+    const hapusPesan = interaction.options.getBoolean("hapus_pesan") ?? true;
+    const alasan = interaction.options.getString("alasan") ?? "Kamu mengirim pesan di channel yang dilarang.";
+
+    saveTrapChannel(guildId, {
+      channelId: channel.id,
+      durationMinutes: durasi,
+      deleteMessage: hapusPesan,
+      reason: alasan,
+    });
+
+    const durasiLabel = durasi < 60
+      ? `${durasi} menit`
+      : durasi < 1440
+        ? `${durasi / 60} jam`
+        : `${durasi / 1440} hari`;
+
+    const embed = new EmbedBuilder()
+      .setColor(0xED4245)
+      .setTitle("⚠️ Trap Channel Diaktifkan")
+      .setDescription(
+        `Channel <#${channel.id}> sekarang adalah **trap channel**.\n\n` +
+        `Siapa pun yang mengirim pesan di sana akan otomatis di-timeout.`
+      )
+      .addFields(
+        { name: "⏱️ Durasi Timeout", value: durasiLabel, inline: true },
+        { name: "🗑️ Hapus Pesan", value: hapusPesan ? "Ya" : "Tidak", inline: true },
+        { name: "📋 Alasan", value: alasan, inline: false },
+      )
+      .setTimestamp()
+      .setFooter({ text: "Xtray Ping Bot • Trap Channel" });
+
+    await interaction.editReply({ embeds: [embed] });
+    logger.info({ guildId, channelId: channel.id, durasi }, "Trap channel diaktifkan");
+  }
+
+  else if (sub === "remove") {
+    const deleted = deleteTrapChannel(guildId);
+    if (!deleted) {
+      await interaction.editReply({ content: "⚠️ Tidak ada trap channel yang aktif di server ini." });
+      return;
+    }
+    await interaction.editReply({ content: "✅ Trap channel berhasil dinonaktifkan." });
+    logger.info({ guildId }, "Trap channel dinonaktifkan");
+  }
+
+  else if (sub === "info") {
+    const entry = getTrapChannel(guildId);
+    if (!entry) {
+      await interaction.editReply({ content: "ℹ️ Tidak ada trap channel yang aktif di server ini." });
+      return;
+    }
+
+    const durasiLabel = entry.durationMinutes < 60
+      ? `${entry.durationMinutes} menit`
+      : entry.durationMinutes < 1440
+        ? `${entry.durationMinutes / 60} jam`
+        : `${entry.durationMinutes / 1440} hari`;
+
+    const embed = new EmbedBuilder()
+      .setColor(0xFEE75C)
+      .setTitle("⚠️ Info Trap Channel")
+      .addFields(
+        { name: "📢 Channel", value: `<#${entry.channelId}>`, inline: true },
+        { name: "⏱️ Durasi Timeout", value: durasiLabel, inline: true },
+        { name: "🗑️ Hapus Pesan", value: entry.deleteMessage ? "Ya" : "Tidak", inline: true },
+        { name: "📋 Alasan", value: entry.reason, inline: false },
+      )
+      .setTimestamp()
+      .setFooter({ text: "Xtray Ping Bot • Trap Channel" });
+
+    await interaction.editReply({ embeds: [embed] });
+  }
 }

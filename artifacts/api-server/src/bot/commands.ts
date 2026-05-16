@@ -161,6 +161,54 @@ export const commands = [
     .setDescription("Tampilkan semua konfigurasi pemantauan yang aktif"),
 
   new SlashCommandBuilder()
+    .setName("trap")
+    .setDescription("Kelola Trap Channel — siapa yang chat di sini langsung di-timeout")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
+    .addSubcommand(sub =>
+      sub.setName("set")
+        .setDescription("Aktifkan trap di sebuah channel")
+        .addChannelOption(opt =>
+          opt.setName("channel")
+            .setDescription("Channel yang akan jadi trap")
+            .addChannelTypes(ChannelType.GuildText)
+            .setRequired(true)
+        )
+        .addIntegerOption(opt =>
+          opt.setName("durasi")
+            .setDescription("Durasi timeout dalam menit")
+            .setRequired(true)
+            .addChoices(
+              { name: "1 menit", value: 1 },
+              { name: "5 menit", value: 5 },
+              { name: "10 menit", value: 10 },
+              { name: "30 menit", value: 30 },
+              { name: "1 jam", value: 60 },
+              { name: "6 jam", value: 360 },
+              { name: "12 jam", value: 720 },
+              { name: "1 hari", value: 1440 },
+            )
+        )
+        .addBooleanOption(opt =>
+          opt.setName("hapus_pesan")
+            .setDescription("Hapus otomatis pesan yang dikirim di channel ini? (default: ya)")
+            .setRequired(false)
+        )
+        .addStringOption(opt =>
+          opt.setName("alasan")
+            .setDescription("Alasan timeout yang tampil ke user (default: Channel ini dilarang)")
+            .setRequired(false)
+        )
+    )
+    .addSubcommand(sub =>
+      sub.setName("remove")
+        .setDescription("Nonaktifkan trap dari channel yang sudah diset")
+    )
+    .addSubcommand(sub =>
+      sub.setName("info")
+        .setDescription("Tampilkan channel mana yang sedang aktif sebagai trap")
+    ),
+
+  new SlashCommandBuilder()
     .setName("createrole")
     .setDescription("Buat pesan Reaction Role — member klik emoji untuk dapat role")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
