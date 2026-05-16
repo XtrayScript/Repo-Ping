@@ -3,6 +3,9 @@ import {
   type ChatInputCommandInteraction,
   type TextChannel,
   EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
 } from "discord.js";
 import { readData, updatePlatform, stopPlatform } from "../storage.js";
 import { logger } from "../../lib/logger.js";
@@ -34,6 +37,10 @@ export async function handleInteraction(interaction: Interaction): Promise<void>
 
     if (commandName === "test") {
       await handleTest(interaction);
+    }
+
+    if (commandName === "invite") {
+      await handleInvite(interaction);
     }
   } catch (err) {
     logger.error({ err, commandName }, "Error handling interaction");
@@ -257,4 +264,42 @@ async function handleTest(interaction: ChatInputCommandInteraction): Promise<voi
     content: `✅ Notifikasi uji coba **${platform}** berhasil dikirim ke <#${cfg.discordChannelId}>!`,
   });
   logger.info({ platform, discordChannelId: cfg.discordChannelId }, "Test notifikasi dikirim");
+}
+
+async function handleInvite(interaction: ChatInputCommandInteraction): Promise<void> {
+  const clientId = process.env["DISCORD_CLIENT_ID"];
+  if (!clientId) {
+    await interaction.editReply({ content: "❌ CLIENT_ID tidak tersedia di environment." });
+    return;
+  }
+
+  const inviteUrl =
+    `https://discord.com/api/oauth2/authorize?client_id=${clientId}` +
+    `&permissions=8&scope=bot+applications.commands`;
+
+  const embed = new EmbedBuilder()
+    .setColor(0x5865F2)
+    .setTitle("🤖 Undang Bot Ini")
+    .setDescription(
+      "Klik tombol di bawah untuk mengundang **Xtray Ping Bot** ke server Discord kamu!\n\n" +
+      "Bot akan memantau YouTube, TikTok, Twitter/X, Telegram, Pinterest, Anime, dan MAL " +
+      "lalu mengirim notifikasi otomatis ke channel yang kamu pilih.",
+    )
+    .addFields(
+      { name: "✅ Fitur", value: "7 platform • Notifikasi otomatis • Slash commands", inline: true },
+      { name: "🔒 Permission", value: "Administrator (untuk kirim pesan ke semua channel)", inline: true },
+    )
+    .setTimestamp()
+    .setFooter({ text: "Xtray Ping Bot • Invite" });
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setLabel("Undang Bot")
+      .setEmoji("🤖")
+      .setStyle(ButtonStyle.Link)
+      .setURL(inviteUrl),
+  );
+
+  await interaction.editReply({ embeds: [embed], components: [row] });
+  logger.info("Invite link dikirim");
 }

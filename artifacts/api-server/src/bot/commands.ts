@@ -161,6 +161,10 @@ export const commands = [
     .setDescription("Tampilkan semua konfigurasi pemantauan yang aktif"),
 
   new SlashCommandBuilder()
+    .setName("invite")
+    .setDescription("Dapatkan link untuk mengundang bot ke server Discord lain"),
+
+  new SlashCommandBuilder()
     .setName("test")
     .setDescription("Kirim notifikasi uji coba ke channel Discord")
     .addStringOption(opt =>
