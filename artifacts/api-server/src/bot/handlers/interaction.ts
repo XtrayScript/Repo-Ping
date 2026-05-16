@@ -6,8 +6,10 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  PermissionFlagsBits,
 } from "discord.js";
 import { readData, updatePlatform, stopPlatform } from "../storage.js";
+import { saveReactionRole } from "../reactionRoleStorage.js";
 import { logger } from "../../lib/logger.js";
 
 export async function handleInteraction(interaction: Interaction): Promise<void> {
@@ -41,6 +43,10 @@ export async function handleInteraction(interaction: Interaction): Promise<void>
 
     if (commandName === "invite") {
       await handleInvite(interaction);
+    }
+
+    if (commandName === "createrole") {
+      await handleCreateRole(interaction);
     }
   } catch (err) {
     logger.error({ err, commandName }, "Error handling interaction");
@@ -264,6 +270,52 @@ async function handleTest(interaction: ChatInputCommandInteraction): Promise<voi
     content: `✅ Notifikasi uji coba **${platform}** berhasil dikirim ke <#${cfg.discordChannelId}>!`,
   });
   logger.info({ platform, discordChannelId: cfg.discordChannelId }, "Test notifikasi dikirim");
+}
+
+async function handleCreateRole(interaction: ChatInputCommandInteraction): Promise<void> {
+  if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageRoles)) {
+    await interaction.editReply({ content: "❌ Kamu butuh permission **Manage Roles** untuk menggunakan perintah ini." });
+    return;
+  }
+
+  const role = interaction.options.getRole("role", true);
+  const emoji = interaction.options.getString("emoji", true).trim();
+  const deskripsi = interaction.options.getString("deskripsi", true).trim();
+
+  if (!interaction.channel?.isTextBased()) {
+    await interaction.editReply({ content: "❌ Perintah ini hanya bisa digunakan di text channel." });
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setColor(0x57F287)
+    .setTitle("🎭 Reaction Role")
+    .setDescription(`${emoji} — ${deskripsi}\n\n**Role:** <@&${role.id}>\n\nKlik emoji di bawah untuk mendapatkan atau melepas role ini.`)
+    .setTimestamp()
+    .setFooter({ text: "Xtray Ping Bot • Reaction Role" });
+
+  const channel = interaction.channel as TextChannel;
+  const message = await channel.send({ embeds: [embed] });
+
+  try {
+    await message.react(emoji);
+  } catch {
+    await message.delete().catch(() => {});
+    await interaction.editReply({ content: `❌ Emoji **${emoji}** tidak valid atau bot tidak bisa menambahkan reaksi tersebut. Coba gunakan emoji standar (contoh: 👍 ✅ 🎮).` });
+    return;
+  }
+
+  saveReactionRole(message.id, {
+    emoji,
+    roleId: role.id,
+    guildId: interaction.guildId ?? "",
+    channelId: interaction.channelId,
+  });
+
+  await interaction.editReply({
+    content: `✅ Reaction Role berhasil dibuat!\n\n**Role:** <@&${role.id}>\n**Emoji:** ${emoji}\n**Pesan:** [Klik di sini](${message.url})\n\nMember bisa klik emoji ${emoji} di pesan tersebut untuk mendapat atau melepas role.`,
+  });
+  logger.info({ roleId: role.id, emoji, messageId: message.id }, "Reaction role dibuat");
 }
 
 async function handleInvite(interaction: ChatInputCommandInteraction): Promise<void> {

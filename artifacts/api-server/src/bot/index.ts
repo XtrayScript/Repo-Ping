@@ -1,7 +1,13 @@
-import { Client, GatewayIntentBits, Events } from "discord.js";
+import {
+  Client,
+  GatewayIntentBits,
+  Events,
+  Partials,
+} from "discord.js";
 import { logger } from "../lib/logger.js";
 import { registerCommands } from "./commands.js";
 import { handleInteraction } from "./handlers/interaction.js";
+import { handleReactionAdd, handleReactionRemove, loadReactionRoleMessages } from "./handlers/reactionRole.js";
 import { startYouTubePoller } from "./pollers/youtube.js";
 import { startTikTokPoller } from "./pollers/tiktok.js";
 import { startTwitterPoller } from "./pollers/twitter.js";
@@ -20,11 +26,25 @@ export async function startBot(): Promise<void> {
   await registerCommands();
 
   const client = new Client({
-    intents: [GatewayIntentBits.Guilds],
+    intents: [
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.GuildMessageReactions,
+      GatewayIntentBits.GuildMembers,
+    ],
+    partials: [
+      Partials.Message,
+      Partials.Channel,
+      Partials.Reaction,
+      Partials.User,
+      Partials.GuildMember,
+    ],
   });
 
-  client.once(Events.ClientReady, (c) => {
+  client.once(Events.ClientReady, async (c) => {
     logger.info({ tag: c.user.tag }, "Bot Discord siap");
+
+    await loadReactionRoleMessages(client);
 
     startYouTubePoller(client);
     startTikTokPoller(client);
@@ -38,6 +58,18 @@ export async function startBot(): Promise<void> {
   client.on(Events.InteractionCreate, (interaction) => {
     handleInteraction(interaction).catch((err) => {
       logger.error({ err }, "Uncaught error di interactionCreate");
+    });
+  });
+
+  client.on(Events.MessageReactionAdd, (reaction, user) => {
+    handleReactionAdd(reaction, user).catch((err) => {
+      logger.error({ err }, "Error di MessageReactionAdd");
+    });
+  });
+
+  client.on(Events.MessageReactionRemove, (reaction, user) => {
+    handleReactionRemove(reaction, user).catch((err) => {
+      logger.error({ err }, "Error di MessageReactionRemove");
     });
   });
 

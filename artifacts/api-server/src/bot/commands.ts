@@ -1,4 +1,4 @@
-import { REST, Routes, SlashCommandBuilder, ChannelType } from "discord.js";
+import { REST, Routes, SlashCommandBuilder, ChannelType, PermissionFlagsBits } from "discord.js";
 import { logger } from "../lib/logger.js";
 
 export const commands = [
@@ -159,6 +159,26 @@ export const commands = [
   new SlashCommandBuilder()
     .setName("status")
     .setDescription("Tampilkan semua konfigurasi pemantauan yang aktif"),
+
+  new SlashCommandBuilder()
+    .setName("createrole")
+    .setDescription("Buat pesan Reaction Role — member klik emoji untuk dapat role")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
+    .addRoleOption(opt =>
+      opt.setName("role")
+        .setDescription("Role yang akan diberikan saat member klik emoji")
+        .setRequired(true)
+    )
+    .addStringOption(opt =>
+      opt.setName("emoji")
+        .setDescription("Emoji yang digunakan (contoh: 👍 atau nama custom emoji)")
+        .setRequired(true)
+    )
+    .addStringOption(opt =>
+      opt.setName("deskripsi")
+        .setDescription("Teks penjelasan yang ditampilkan di pesan embed")
+        .setRequired(true)
+    ),
 
   new SlashCommandBuilder()
     .setName("invite")
