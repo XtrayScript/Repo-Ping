@@ -1,6 +1,7 @@
 import {
   type Interaction,
   type ChatInputCommandInteraction,
+  type TextChannel,
   EmbedBuilder,
 } from "discord.js";
 import { readData, updatePlatform, stopPlatform } from "../storage.js";
@@ -29,6 +30,10 @@ export async function handleInteraction(interaction: Interaction): Promise<void>
 
     if (sub === "set") {
       await handleSet(interaction, commandName);
+    }
+
+    if (commandName === "test") {
+      await handleTest(interaction);
     }
   } catch (err) {
     logger.error({ err, commandName }, "Error handling interaction");
@@ -158,4 +163,98 @@ async function handleStatus(interaction: ChatInputCommandInteraction): Promise<v
     .setFooter({ text: "Xtray Ping Bot • Status" });
 
   await interaction.editReply({ embeds: [embed] });
+}
+
+const TEST_CONFIGS: Record<string, { color: number; title: string; desc: string; url: string; footer: string }> = {
+  youtube: {
+    color: 0xFF0000,
+    title: "Video Baru: Xtray Bot Test #1",
+    desc: "Video baru dari channel **XtrayTV** sudah tayang!",
+    url: "https://www.youtube.com",
+    footer: "Xtray Ping Bot • YouTube",
+  },
+  tiktok: {
+    color: 0x010101,
+    title: "Video baru dari @xtray_official",
+    desc: "**@xtray_official** memposting video baru di TikTok",
+    url: "https://www.tiktok.com",
+    footer: "Xtray Ping Bot • TikTok",
+  },
+  twitter: {
+    color: 0x1DA1F2,
+    title: "Tweet baru dari @xtray_official",
+    desc: "Ini adalah contoh tweet yang dipantau oleh bot. Notifikasi akan muncul seperti ini setiap ada tweet baru. 🔔",
+    url: "https://twitter.com",
+    footer: "Xtray Ping Bot • Twitter/X",
+  },
+  telegram: {
+    color: 0x2AABEE,
+    title: "Pesan baru dari @xtray_channel",
+    desc: "Ini adalah contoh pesan channel Telegram yang dipantau oleh bot.",
+    url: "https://t.me",
+    footer: "Xtray Ping Bot • Telegram",
+  },
+  pinterest: {
+    color: 0xE60023,
+    title: "Pin baru dari xtray_official",
+    desc: "Pin baru dari **xtray_official** di Pinterest",
+    url: "https://www.pinterest.com",
+    footer: "Xtray Ping Bot • Pinterest",
+  },
+  anime: {
+    color: 0x7B4FFF,
+    title: "Demon Slayer: Kimetsu no Yaiba — Episode 12",
+    desc: "Episode **12** dari **Demon Slayer: Kimetsu no Yaiba** sudah tayang!",
+    url: "https://anilist.co",
+    footer: "Xtray Ping Bot • Anime (AniList)",
+  },
+  mal: {
+    color: 0x2E51A2,
+    title: "Update MAL: Attack on Titan",
+    desc: "**xtray_user** menonton episode **25** dari **Attack on Titan** (dari 25 eps)",
+    url: "https://myanimelist.net",
+    footer: "Xtray Ping Bot • MyAnimeList",
+  },
+};
+
+async function handleTest(interaction: ChatInputCommandInteraction): Promise<void> {
+  const platform = interaction.options.getString("platform", true);
+  const data = readData();
+  const cfg = data[platform as keyof typeof data] as { discordChannelId?: string } | undefined;
+
+  if (!cfg?.discordChannelId) {
+    await interaction.editReply({
+      content: `❌ Platform **${platform}** belum dikonfigurasi.\nGunakan \`/${platform} set\` terlebih dahulu.`,
+    });
+    return;
+  }
+
+  const testCfg = TEST_CONFIGS[platform];
+  if (!testCfg) {
+    await interaction.editReply({ content: "❌ Platform tidak dikenal." });
+    return;
+  }
+
+  const ch = interaction.client.channels.cache.get(cfg.discordChannelId) as TextChannel | undefined;
+  if (!ch) {
+    await interaction.editReply({
+      content: `❌ Channel Discord <#${cfg.discordChannelId}> tidak ditemukan. Pastikan bot punya akses ke channel tersebut.`,
+    });
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setColor(testCfg.color)
+    .setTitle(`[TEST] ${testCfg.title}`)
+    .setURL(testCfg.url)
+    .setDescription(testCfg.desc)
+    .addFields({ name: "ℹ️ Info", value: "Ini adalah notifikasi uji coba. Notifikasi nyata akan otomatis dikirim saat ada konten baru." })
+    .setTimestamp()
+    .setFooter({ text: testCfg.footer });
+
+  await ch.send({ embeds: [embed] });
+  await interaction.editReply({
+    content: `✅ Notifikasi uji coba **${platform}** berhasil dikirim ke <#${cfg.discordChannelId}>!`,
+  });
+  logger.info({ platform, discordChannelId: cfg.discordChannelId }, "Test notifikasi dikirim");
 }

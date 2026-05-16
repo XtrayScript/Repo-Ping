@@ -159,6 +159,24 @@ export const commands = [
   new SlashCommandBuilder()
     .setName("status")
     .setDescription("Tampilkan semua konfigurasi pemantauan yang aktif"),
+
+  new SlashCommandBuilder()
+    .setName("test")
+    .setDescription("Kirim notifikasi uji coba ke channel Discord")
+    .addStringOption(opt =>
+      opt.setName("platform")
+        .setDescription("Platform yang ingin diuji")
+        .setRequired(true)
+        .addChoices(
+          { name: "YouTube", value: "youtube" },
+          { name: "TikTok", value: "tiktok" },
+          { name: "Twitter/X", value: "twitter" },
+          { name: "Telegram", value: "telegram" },
+          { name: "Pinterest", value: "pinterest" },
+          { name: "Anime (AniList)", value: "anime" },
+          { name: "MyAnimeList", value: "mal" },
+        )
+    ),
 ].map(cmd => cmd.toJSON());
 
 export async function registerCommands(): Promise<void> {
