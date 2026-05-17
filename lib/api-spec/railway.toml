@@ -1,0 +1,6 @@
+[build]
+buildCommand = "echo 'skipped: codegen library'"
+
+[deploy]
+startCommand = "node -e \"require('http').createServer(function(_,r){r.end('ok')}).listen(process.env.PORT||8080)\""
+restartPolicyType = "ON_FAILURE"
